@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """scenario-coverage: is each scenario of a change shown by a test at its declared level?
 
-  scenario-coverage.py [--main] [--manual FILE] [--into SENSORS_MD] <clone> [<surefire report dir>...]
+  scenario-coverage.py [--main] [--known FILE] [--manual FILE] [--into SENSORS_MD] <clone> [<surefire report dir>...]
 
 Scenarios come from the change's spec deltas (openspec/changes/<change>/specs/**/
 spec.md, ADDED and MODIFIED requirements). With --main they come from the main specs
 instead (openspec/specs/**/spec.md, every requirement): the check for drift between
-the specs a team keeps and its tests, run on a schedule. Each scenario declares the lowest level
+the specs a team keeps and its tests, run on a schedule. With --known FILE (lines
+"<test class>#<method> <ticket>", the known-defect list), a scenario that is failed or
+untested and whose every test is on the list is shown as KNOWN DEFECT and is not a
+finding: the defect has a ticket, and the drift check has nothing new to say. Each scenario declares the lowest level
 at which its outcome can be observed, in a line "- **CHECKED AT** <level>":
 
   unit < form < database < mysql-postgres < concurrency < manual
@@ -165,7 +168,7 @@ def manual_records(path):
     return {m.group(1).strip().lower() for m in re.finditer(r"^### (.+)$", open(path, encoding="utf-8").read(), re.M)}
 
 
-def assess(scs, tts, res, manual):
+def assess(scs, tts, res, manual, known=None):
     keys = {s["title"]: camel(s["title"]).lower() for s in scs}
     by_scenario = {s["title"]: [] for s in scs}
     for cls, method, levels in tts:
@@ -202,13 +205,17 @@ def assess(scs, tts, res, manual):
                 status, detail = "UNTESTED", "only tests below its level, or tests that did not pass"
             else:
                 status, detail = "UNTESTED", "no test is named for it"
+        if known and status in ("FAILED", "UNTESTED") and found:
+            tickets = [known.get(c.split(".")[-1].split("$")[0] + "#" + m) for c, m, _, _ in found]
+            if all(tickets):
+                status, detail = "KNOWN DEFECT", "its test is tied to " + ", ".join(sorted(set(tickets)))
         rows.append((s, status, detail, found))
     return rows
 
 
 def run(argv):
-    manual, into, main, args = None, None, False, list(argv)
-    while args[:1] in (["--manual"], ["--into"], ["--main"]):
+    manual, into, main, known_file, args = None, None, False, None, list(argv)
+    while args[:1] in (["--manual"], ["--into"], ["--main"], ["--known"]):
         if args[0] == "--main":
             main, args = True, args[1:]
             continue
@@ -217,6 +224,8 @@ def run(argv):
             return 2
         if args[0] == "--manual":
             manual = args[1]
+        elif args[0] == "--known":
+            known_file = args[1]
         else:
             into = args[1]
         args = args[2:]
@@ -225,7 +234,13 @@ def run(argv):
         return 2
     clone, dirs = args[0], args[1:]
     scs = scenarios(clone, main)
-    rows = assess(scs, tests(clone), results(dirs), manual_records(manual))
+    known = {}
+    if known_file and os.path.exists(known_file):
+        for line in open(known_file, encoding="utf-8"):
+            parts = line.split()
+            if len(parts) >= 2 and not line.startswith("#"):
+                known[parts[0]] = parts[1]
+    rows = assess(scs, tests(clone), results(dirs), manual_records(manual), known)
     count = lambda st: sum(1 for r in rows if r[1] == st)
     L = ["## Scenario coverage of the main specs" if main else "## Scenario coverage", ""]
     if not scs:
@@ -233,7 +248,8 @@ def run(argv):
         emit(L, into, "no scenario in the main specs" if main else "no scenario in the change")
         return 0
     L.append(f"{len(rows)} scenarios: {count('PRESENT')} present, {count('ABOVE')} tested above their level, "
-             f"{count('FAILED')} failed, {count('UNTESTED')} untested, {count('NO LEVEL')} with no level declared. "
+             f"{count('FAILED')} failed, {count('UNTESTED')} untested, {count('NO LEVEL')} with no level declared"
+             + (f", {count('KNOWN DEFECT')} tied to a known defect" if count('KNOWN DEFECT') else "") + ". "
              "A test shows a scenario by its name; present is not adequate: whether the test can fail is the reviewer's question.\n")
     shape = [(l, sum(1 for s in scs if s["level"] == l)) for l in LEVELS]
     L.append("Shape, by declared level: " + ", ".join(f"{l} {n}" for l, n in shape) + ".\n")

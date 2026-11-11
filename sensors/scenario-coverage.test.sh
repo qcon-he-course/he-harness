@@ -175,4 +175,26 @@ expect "--main reports a scenario with no test" '^scenario pets: Nobody wrote a 
 if [ "$code" = 1 ]; then echo "ok   --main exits 1 on a finding"; else echo "FAIL --main exit $code"; fails=$((fails + 1)); fi
 expect "--main names the main specs in its heading" '^## Scenario coverage of the main specs' -
 
+# --known: a scenario whose only tests are tied to an open defect is shown as a known defect
+# and is not a finding. The list has lines "<test class>#<method> <ticket>".
+printf '<testsuite><testcase classname="p.PetValidatorTests" name="dashesAreNotRemoved"><failure/></testcase></testsuite>\n' > "$t/kn-TEST.xml"; mkdir -p "$t/kn"; mv "$t/kn-TEST.xml" "$t/kn/TEST-p.PetValidatorTests.xml"
+printf '#### Scenario: Nobody wrote a test for this\n' > /dev/null
+cat > "$c/openspec/specs/pets/spec.md" <<'S'
+## Requirements
+
+### Requirement: Numbers
+
+#### Scenario: Dashes are not removed
+
+- **THEN** rejected
+- **CHECKED AT** unit
+S
+printf '# a comment\nPetValidatorTests#dashesAreNotRemoved PC-9\n' > "$t/known.txt"
+python3 -B "$here/scenario-coverage.py" --main "$c" "$t/kn" > "$t/out"; code=$?
+if [ "$code" = 1 ]; then echo "ok   without --known, a failing scenario test is a finding"; else echo "FAIL exit $code without --known"; fails=$((fails + 1)); fi
+python3 -B "$here/scenario-coverage.py" --main --known "$t/known.txt" "$c" "$t/kn" > "$t/out"; code=$?
+expect "--known marks the scenario as a known defect" '\| unit \| KNOWN DEFECT: its test is tied to PC-9' "Dashes are not removed"
+expect "--known counts it apart" '^1 scenarios: 0 present, .*1 tied to a known defect' -
+if [ "$code" = 0 ]; then echo "ok   a known defect is not a finding"; else echo "FAIL --known exit $code"; fails=$((fails + 1)); fi
+
 if [ "$fails" = 0 ]; then echo "all passed"; else echo "$fails failed"; exit 1; fi
