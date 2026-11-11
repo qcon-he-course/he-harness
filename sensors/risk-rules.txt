@@ -1,0 +1,55 @@
+# Risk rules for PetClinic: read by risk-floor.py (the tier) and test-delta.py (the
+# protected checks). They live in the harness, outside the repository, so a change
+# cannot edit the rules that classify it.
+#
+# <tier> <surface> <match> <pattern>
+#   tier:   mechanical < bounded < material < critical. A change's floor is the
+#           highest tier of any rule it triggers. A file no rule matches is bounded.
+#   match:  path   a path glob (** crosses directories, * does not)
+#           added  a regex searched in the change's added lines (all files)
+#           pom    a new <dependency> or <plugin> in pom.xml (no pattern)
+#
+# Tiers follow the reference document (research/notes/2026-08-28-...md, 4.2):
+# critical for auth, CI, and the checks that judge the change; material for
+# persistence, concurrency, dependencies, build and configuration.
+
+# The checks that judge the change (also test-delta's protected list)
+critical    protected-check   path    src/test/java/**/ArchitectureTests.java
+critical    protected-check   path    src/test/resources/archunit_store/**
+critical    protected-check   path    src/test/resources/archunit.properties
+critical    protected-check   path    src/test/java/**/*CharacterizationTests.java
+critical    protected-check   path    src/checkstyle/**
+critical    ci                path    .github/**
+critical    security          path    **/security/**
+critical    security          added   \b(SecurityFilterChain|PasswordEncoder|@PreAuthorize|@Secured|spring-boot-starter-security)\b
+
+material    schema            path    src/main/resources/db/**
+material    persistence       added   @(Entity|Table|Column|JoinColumn|OneToMany|ManyToOne|ManyToMany|OneToOne|Query)\b|extends\s+(Jpa|Crud|ListCrud|PagingAndSorting)?Repository\b
+material    concurrency       added   \bsynchronized\b|@Transactional\b|@Lock\b|@Version\b|\bvolatile\b|\bConcurrent[A-Z]\w*
+material    dependency        pom
+material    build             path    pom.xml
+material    build             path    build.gradle
+material    build             path    settings.gradle
+material    build             path    mvnw
+material    build             path    mvnw.cmd
+material    build             path    gradlew
+material    build             path    gradlew.bat
+material    build             path    .mvn/**
+material    build             path    gradle/**
+material    config            path    src/main/resources/application*.properties
+material    deployment        path    k8s/**
+material    deployment        path    docker-compose.yml
+material    deployment        path    .devcontainer/**
+
+bounded     production-code   path    src/main/java/**
+bounded     templates         path    src/main/resources/templates/**
+bounded     messages          path    src/main/resources/messages/**
+bounded     static            path    src/main/resources/static/**
+bounded     static            path    src/main/scss/**
+bounded     tests             path    src/test/**
+
+mechanical  docs              path    **/*.md
+mechanical  specs             path    openspec/**
+mechanical  docs              path    docs/**
+mechanical  editor            path    .editorconfig
+mechanical  editor            path    .gitattributes

@@ -1,0 +1,46 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["change", "scenarios", "findings", "for_the_person", "overall"],
+  "properties": {
+    "change": { "type": "string", "description": "The change reviewed, for example pc-303" },
+    "scenarios": {
+      "type": "array",
+      "description": "One verdict for every scenario in the change's spec deltas",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "verdict", "evidence"],
+        "properties": {
+          "title": { "type": "string" },
+          "verdict": { "type": "string", "enum": ["MET", "PARTLY", "UNTESTED", "NOT MET", "UNKNOWN"] },
+          "evidence": { "type": "string", "description": "The test and assertion, or the code, with file and line" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "disposition", "title", "where", "claim", "evidence", "falsification", "confidence"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]+$" },
+          "disposition": { "type": "string", "enum": ["BLOCK", "AUTO-FIX+REVERIFY", "DISCUSS", "INFORMATIONAL"] },
+          "title": { "type": "string" },
+          "where": { "type": "string" },
+          "claim": { "type": "string" },
+          "evidence": { "type": "string" },
+          "falsification": { "type": "string", "description": "This finding is wrong if ..." },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "for_the_person": {
+      "type": "array",
+      "description": "Questions only a person can answer; empty when there are none",
+      "items": { "type": "string" }
+    },
+    "overall": { "type": "string" }
+  }
+}

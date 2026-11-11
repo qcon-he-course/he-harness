@@ -1,0 +1,10 @@
+# Tests tied to a known defect. Kept by people, outside the repository under review, so a
+# change cannot add its own failing test to this list.
+# One test per line: <test class>#<test method> <ticket>. The ticket is a file in this
+# folder whose "Status:" line says open. When the ticket closes, the line goes, and the
+# test is back in the build.
+#
+# The pipeline leaves these tests out of the full suite and runs them in a lane of their
+# own, with their whole class. Their results are shown in sensors.md and the packet; they
+# do not decide whether the build passes.
+PetClinicConcurrencyTests#twoSimultaneousAddsWithTheSameName PC-302
