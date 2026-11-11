@@ -10,7 +10,8 @@
 # the checkout). <out dir> gets prompt.txt, result.json, stderr.txt and, only when the
 # output passes review-check.py, review.md.
 #
-# REVIEWER=claude (default) or codex. REVIEW_MODEL, REVIEW_MAX_TURNS (60),
+# REVIEWER=claude (default) or codex. REVIEW_MODEL (Claude: claude-sonnet-5-5, the model
+# the subagent form of this reviewer runs on; Codex: gpt-6.1-sol), REVIEW_MAX_TURNS (60),
 # REVIEW_BUDGET_USD (2), REVIEW_TIME_CAP in seconds (900).
 #
 # Claude runs with --bare: no hooks, no MCP servers and no CLAUDE.md from the
@@ -67,7 +68,7 @@ case "$reviewer" in
     fi
     timeout "${REVIEW_TIME_CAP:-900}" claude -p "$(cat "$out/prompt.txt")" \
       --bare \
-      --model "${REVIEW_MODEL:-claude-opus-5-5}" \
+      --model "${REVIEW_MODEL:-claude-sonnet-5-5}" \
       --append-system-prompt-file "$skill" \
       --add-dir "$inputs" \
       --permission-mode dontAsk \
