@@ -81,7 +81,9 @@ def extract(result):
         return None, "the result is not a JSON object"
     if "type" in result and "subtype" in result:  # Claude Code's result message
         if result.get("is_error") or result.get("subtype") != "success":
-            return None, f"the run did not succeed: subtype {result.get('subtype')!r}, is_error {result.get('is_error')!r}"
+            said = " ".join(str(result.get("result") or "").split())[:300]
+            return None, (f"the run did not succeed: subtype {result.get('subtype')!r}, is_error {result.get('is_error')!r}, "
+                          f"api_error_status {result.get('api_error_status')!r}" + (f"; it said: {said}" if said else ""))
         if result.get("structured_output") is None:
             return None, "the run returned no structured_output"
         return result["structured_output"], None

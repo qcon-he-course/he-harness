@@ -81,11 +81,14 @@ case "$reviewer" in
     ;;
   codex)
     [ -n "${CODEX_API_KEY:-}" ] || { echo "review-headless: CODEX_API_KEY is not set" >&2; exit 1; }
-    timeout "${REVIEW_TIME_CAP:-900}" codex exec "$(cat "$skill"; echo; cat "$out/prompt.txt")" \
+    # The skill opens with "---": after "--" it is the prompt, not an option.
+    timeout "${REVIEW_TIME_CAP:-900}" codex exec \
       --model "${REVIEW_MODEL:-gpt-6.1-sol}" \
       --sandbox read-only \
+      --skip-git-repo-check \
       --output-schema "$schema" \
       -o "$out/result.json" \
+      -- "$(cat "$skill"; echo; cat "$out/prompt.txt")" \
       < /dev/null > "$out/stdout.txt" 2> "$out/stderr.txt"
     echo "review-headless: codex exit $?" >&2
     ;;
