@@ -161,8 +161,10 @@ def sensors(path):
         for t, k, n, f, p, m in re.findall(r"^\| `([^`]+)` \| (\S+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|$", sec.group(1), re.M):
             lane.append({"test": t, "ticket": k, "runs": int(n), "failed": int(f), "passed": int(p), "missing": int(m)})
     b1 = re.search(r"^\| Build checks[^|]*\| ([^|]+) \|", text, re.M)
+    mut = re.search(r"^\| Mutation score on changed classes[^|]*\| ([^|]+) \|", text, re.M)
     return {"floor": floor.group(1) if floor else "none",
             "b1_failed": bool(b1 and "FAIL" in b1.group(1)),
+            "mutation_failed": bool(mut and "FAIL" in mut.group(1)),
             "coverage": cov_row.group(1).strip() if cov_row else "",
             "lane": lane,
             "host": (f"{len(host_passed)} class{'es' if len(host_passed) != 1 else ''} passed on the host in {orders} test orders" if host_passed else "")
@@ -285,6 +287,8 @@ def check(inputs, reply, clone=None):
         red.append(f"the test suite has no result ({sens['suite']})")
     if sens["b1_failed"]:
         red.append("the build checks (`./mvnw validate`)")
+    if sens["mutation_failed"]:
+        red.append("the mutation threshold on changed classes")
     why = [f"{len(blocks)} open BLOCK"] if blocks else []
     why += ["failing: " + ", ".join(red)] if red else []
     questions = [t for t in merged if t.get("question") and t["disposition"] in ("BLOCK", "DISCUSS")]

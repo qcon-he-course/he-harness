@@ -10,6 +10,7 @@ They live here, outside the repository they judge, so that a pull request cannot
 | `skills/` | What the reviewers are told: `review-code`, `review-change`, `triage-findings` |
 | `review/` | The headless reviewer: one script that runs Claude Code or Codex on a change, a schema for its output, and a check that accepts a valid review or fails closed |
 | `known-defects/` | Tests tied to an open defect, and their tickets |
+| `ci/` | What the pull-request workflow's jobs run: `sensors.sh` (no model key), `gate.sh` (the policy; the required check) |
 
 ## Two rules this layout follows
 
@@ -19,7 +20,7 @@ They live here, outside the repository they judge, so that a pull request cannot
 ## Running the tests
 
 ```bash
-for t in sensors/*.test.sh review/*.test.sh; do bash "$t" | tail -1; done
+for t in sensors/*.test.sh review/*.test.sh ci/*.test.sh; do bash "$t" | tail -1; done
 ```
 
 The stack-specific parts are the build commands in `sensors/step5.sh` and the patterns in `sensors/risk-rules.txt`. Everything else reads git, OpenSpec files and test reports.

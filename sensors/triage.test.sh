@@ -101,6 +101,12 @@ lane 1 2; clean "10 run, 0 failures, 0 errors, 1 skipped" - "$t/lane.md"; expect
 lane 1 2; clean "10 run, 0 failures, 0 errors, 1 skipped" - "$t/lane.md"; expect "the lane is under Known defects" 0 '`XTests#race` \(PC-9\) runs in the known-defect lane, outside the build: failed 1 of 3 runs'
 lane 0 3; clean "10 run, 0 failures, 0 errors, 1 skipped" - "$t/lane.md"; expect "a lane that passed every run says timing may hide it" 0 'passed in every run of the lane, which may mean only that the timing hid it'
 
+# The mutation threshold on the classes a change touches (Week 4): below it, not eligible.
+printf '| Mutation score on changed classes (threshold 80%%) | FAIL: 60%% (6 of 10 mutants detected) |\n' > "$t/mut.md"
+clean "10 run, 0 failures, 0 errors, 1 skipped" - "$t/mut.md"; expect "a mutation score below the threshold is not eligible" 0 'Eligible to merge \| \*\*no\*\*: failing: the mutation threshold on changed classes'
+printf '| Mutation score on changed classes (threshold 80%%) | pass: 90%% (47 of 52 mutants detected) |\n' > "$t/mut.md"
+clean "10 run, 0 failures, 0 errors, 1 skipped" - "$t/mut.md"; expect "a mutation score at or above the threshold is eligible" 0 '^\| Eligible to merge \| \*\*yes\*\* \|'
+
 # The build's own checks (./mvnw validate, B1) fail the build, as ./mvnw verify would.
 printf '| Build checks (`./mvnw validate`, B1) | formatting FAILS (1 file) |\n' > "$t/b1.md"
 clean "10 run, 0 failures, 0 errors, 1 skipped" - "$t/b1.md"; expect "a B1 failure is not eligible" 0 'Eligible to merge \| \*\*no\*\*: failing: the build checks'

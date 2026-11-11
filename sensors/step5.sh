@@ -20,7 +20,9 @@
 #                    the tests in known-defect-tests.txt
 #   known-defect lane those tests, run on their own with their whole class, KNOWN_DEFECT_RUNS
 #                    times (default 3); shown, not counted (plan, 1 November)
-#   PIT              mutation testing on the pet slice (the pom's PIT set-up)
+#   PIT              mutation testing on the production classes the change touches, named on
+#                    the command line, so the build file holds no class list; the score on
+#                    them must reach MUTATION_THRESHOLD (default 80) per cent
 set -uo pipefail
 
 clone="${1:?usage: step5.sh <clone> <out dir>}"
@@ -107,14 +109,26 @@ if [ -n "$known_classes" ]; then
   done
 fi
 
-log "mutation testing (PIT)"
-rm -rf target/pit-reports
-start=$(date +%s)
-./mvnw "${mvn_flags[@]}" -DskipTests=false org.pitest:pitest-maven:mutationCoverage > "$out/pit.log" 2>&1
-pit_exit=$?
-pit_secs=$(( $(date +%s) - start ))
-[ -f target/pit-reports/mutations.xml ] && cp target/pit-reports/mutations.xml "$out/mutations.xml"
+# The production classes the change touches or adds, as class names.
+changed_classes="$(git status --porcelain -uall -- src/main/java | awk '$1 != "D" {print $NF}' | grep '\.java$' \
+  | sed 's|^src/main/java/||; s|\.java$||; s|/|.|g' | paste -sd, -)"
+echo "$changed_classes" > "$out/changed-classes.txt"
+rm -rf target/pit-reports "$out/mutations.xml"
+pit_exit=0; pit_secs=0
+if [ -n "$changed_classes" ]; then
+  log "mutation testing (PIT) on: $changed_classes"
+  start=$(date +%s)
+  ./mvnw "${mvn_flags[@]}" -DskipTests=false org.pitest:pitest-maven:mutationCoverage \
+    -DtargetClasses="$changed_classes" -DoutputFormats=XML,HTML -DtimestampedReports=false \
+    -DfailWhenNoMutations=false > "$out/pit.log" 2>&1
+  pit_exit=$?
+  pit_secs=$(( $(date +%s) - start ))
+  [ -f target/pit-reports/mutations.xml ] && cp target/pit-reports/mutations.xml "$out/mutations.xml"
+else
+  log "mutation testing: the change touches no production class"
+fi
 
+export MUTATION_THRESHOLD="${MUTATION_THRESHOLD:-80}" CHANGED_CLASSES="$changed_classes"
 python3 - "$here" "$clone" "$out" "$tier" "$delta_exit" "$glossary_exit" "$arch_exit" "$tests_exit" "$tests_secs" "$pit_exit" "$pit_secs" "$validate_exit" "$fmt_exit" "$nohttp_exit" <<'PY'
 import os, re, sys, xml.etree.ElementTree as ET
 here, clone, out, tier, delta_exit, glossary_exit, arch_exit, tests_exit, tests_secs, pit_exit, pit_secs, validate_exit, fmt_exit, nohttp_exit = sys.argv[1:]
@@ -182,10 +196,23 @@ if total:
     L.append(f"| Full test suite ({tests_secs} s) | {r} run, {f} failures, {e} errors, {s} skipped{'' if tests_exit == '0' else ': BUILD FAILED'} |")
 else:
     L.append(f"| Full test suite | no summary found (exit {tests_exit}) |")
-if muts:
-    L.append(f"| Mutation testing, pet slice ({pit_secs} s) | {len(muts)} mutants: {by.get('KILLED', 0)} killed, {by.get('SURVIVED', 0)} survived, {by.get('NO_COVERAGE', 0)} without coverage, {by.get('TIMED_OUT', 0)} timed out |")
+changed = os.environ.get("CHANGED_CLASSES", "")
+threshold = int(os.environ.get("MUTATION_THRESHOLD", "80"))
+score_row = f"| Mutation score on changed classes (threshold {threshold}%) |"
+if not changed:
+    L.append("| Mutation testing | not run: the change touches no production class |")
+elif muts:
+    detected = sum(by.get(k, 0) for k in ("KILLED", "TIMED_OUT", "MEMORY_ERROR", "RUN_ERROR"))
+    pct = detected * 100 // len(muts)
+    L.append(f"| Mutation testing, changed classes ({pit_secs} s) | {len(muts)} mutants: {by.get('KILLED', 0)} killed, {by.get('SURVIVED', 0)} survived, {by.get('NO_COVERAGE', 0)} without coverage, {by.get('TIMED_OUT', 0)} timed out |")
+    L.append(f"{score_row} {'pass' if pct >= threshold else 'FAIL'}: {pct}% ({detected} of {len(muts)} mutants detected) |")
+elif pit_exit == "0":
+    L.append(f"| Mutation testing, changed classes ({pit_secs} s) | no mutants |")
+    L.append(f"{score_row} pass: no mutants in the changed classes |")
 else:
+    # Fail closed: classes changed and PIT gave no report.
     L.append(f"| Mutation testing | no report (exit {pit_exit}) |")
+    L.append(f"{score_row} FAIL: no mutation report for the changed classes |")
 L.append("")
 L.append("## Risk floor\n\n```\n" + read("risk-floor.txt").strip() + "\n```\n")
 L.append("## Test-delta audit\n\n```\n" + "\n".join(delta) + "\n```\n")
@@ -212,7 +239,7 @@ if not_run:
     L.append("Not run (no Docker): " + ", ".join(not_run) + ". Not run is not passed.\n")
 if muts:
     L.append("## Mutation testing: survivors and mutants without coverage\n")
-    L.append("PIT's set-up is the pom's: `PetController` and `PetValidator`, tested by `owner.Pet*Tests`.\n")
+    L.append("PIT mutated the production classes the change touches: " + ", ".join(f"`{c.split('.')[-1]}`" for c in changed.split(",")) + ".\n")
     new = [m for m in muts if int(m["lineNumber"] or 0) in added.get(m["mutatedClass"].split(".")[-1] + ".java", set())]
     nb = {}
     for m in new:
