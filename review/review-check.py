@@ -140,7 +140,13 @@ def run(argv):
     with open(dest, "w", encoding="utf-8") as fh:
         fh.write(render(review, reviewer))
     blocks = sum(1 for f in review["findings"] if f["disposition"] == "BLOCK")
-    print(f"review-check: review written: {len(review['scenarios'])} scenarios, {len(review['findings'])} findings, {blocks} BLOCK")
+    run = ""
+    if isinstance(result, dict) and "subtype" in result:  # Claude Code reports what the run took
+        took = [f"{result[k]}{u}" for k, u in (("num_turns", " turns"), ("duration_ms", " ms")) if result.get(k) is not None]
+        if result.get("total_cost_usd") is not None:
+            took.append(f"${result['total_cost_usd']:.2f}")
+        run = "; " + ", ".join(took) if took else ""
+    print(f"review-check: review written: {len(review['scenarios'])} scenarios, {len(review['findings'])} findings, {blocks} BLOCK{run}")
     return 0
 
 
