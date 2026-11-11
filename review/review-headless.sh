@@ -16,9 +16,13 @@
 #
 # Claude runs with --bare: no hooks, no MCP servers and no CLAUDE.md from the
 # repository under review, and no sign-in from the machine. It needs ANTHROPIC_API_KEY.
-# Codex needs CODEX_API_KEY and runs in its read-only sandbox. Not closed for Codex: the
-# commands it runs inherit its environment, the key included; its sandbox is what stands
-# between a command and the network. To check in the first CI run.
+# Codex needs CODEX_API_KEY and runs in its read-only sandbox: it reads files through
+# shell commands, so it has a shell, with no write access and no network. By default
+# those commands inherit Codex's environment, the key included, and a rigged change
+# could ask for the key in a finding. shell_environment_policy.ignore_default_excludes
+# =false removes every variable named *KEY*, *SECRET* or *TOKEN* from what a command
+# sees. On an Ubuntu 24.04 runner the sandbox starts only after
+# kernel.apparmor_restrict_unprivileged_userns is set to 0: the workflow does that.
 #
 # The reviewer holds an API key and reads a change nobody has vetted, so it gets no
 # shell: it runs no build and no test (the sensors ran them, in a job with no key), and
@@ -86,6 +90,7 @@ case "$reviewer" in
     timeout "${REVIEW_TIME_CAP:-900}" codex exec \
       --model "${REVIEW_MODEL:-gpt-6.1-sol}" \
       --sandbox read-only \
+      -c shell_environment_policy.ignore_default_excludes=false \
       --skip-git-repo-check \
       --output-schema "$schema" \
       -o "$out/result.json" \
