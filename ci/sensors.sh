@@ -26,6 +26,10 @@ if [ "$(printf '%s\n' "$changes" | grep -c .)" != 1 ]; then
   echo "sensors: the pull request must carry exactly one OpenSpec change in openspec/changes/; found: ${changes:-none}" >&2
   exit 1
 fi
+# The name goes into a reviewer's prompt: letters, digits and hyphens only.
+case "$changes" in
+  *[!a-z0-9-]*|-*) echo "sensors: the change's folder name must be lower-case letters, digits and hyphens" >&2; exit 1 ;;
+esac
 echo "$changes" > "$out/change.txt"
 
 # The sensors run from a copy beside the known-defect list, which is checked first:
