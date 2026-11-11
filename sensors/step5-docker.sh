@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Week 3, step 5, the part that needs Docker: the MySQL and Postgres tests, run on the
-# presenter's machine where Docker is, after the container sensors (step5.sh).
+# Step 5, the part that needs Docker: the MySQL and Postgres tests, run where Docker is
+# (the presenter's machine locally, the runner in CI), after the other sensors (step5.sh).
 #
 #   step5-docker.sh <clone> <out dir>
 #
@@ -43,7 +43,7 @@ python3 - "$out" "$(java -version 2>&1 | head -1)" "$(docker version --format '{
 import glob, os, re, sys, xml.etree.ElementTree as ET
 out, java, docker, runs = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
 L = ["", "## Docker tests (host)", "",
-     f"Run on the presenter's machine by the harness, not by an agent; {java}; Docker {docker or 'unknown'}. Twice, in opposite class orders.", ""]
+     f"Run by the harness where Docker is, in a job with no model key, not by an agent; {java}; Docker {docker or 'unknown'}. Twice, in opposite class orders.", ""]
 for run in runs:
     order, code, secs = run.split(":")
     log = open(os.path.join(out, f"docker-tests-{order}.log"), encoding="utf-8", errors="replace").read()

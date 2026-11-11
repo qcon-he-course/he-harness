@@ -47,3 +47,6 @@ bash "$out/sensors/step5-docker.sh" "$change_dir" "$out"
 python3 -B "$harness/sensors/scenario-coverage.py" --into "$out/sensors.md" "$change_dir" \
   "$out/suite-reports" "$out"/known-reports-* "$out"/docker-reports-* || true
 echo "sensors: wrote $out/sensors.md for change $changes"
+# Red or green, by the sensors alone: the workflow runs no reviewer on a red build.
+if reasons="$(python3 -B "$here/red.py" "$out/sensors.md")"; then red=no; else red=yes; echo "sensors: the build is red:"; echo "$reasons" | sed 's/^/  /'; fi
+if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "red=$red" >> "$GITHUB_OUTPUT"; fi

@@ -26,7 +26,7 @@ check "a material change is eligible and still needs a person" 0 yes no 'risk fl
 setup; sensors bounded 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"; review '**C1: BLOCK.** The birthday is a day late.' > "$t/run/inputs/review-step6-claude.md"; review "$none" > "$t/run/inputs/review-step6-codex.md"
 check "one reviewer's BLOCK makes the change not eligible" 1 no no '1 open BLOCK'
 setup; sensors bounded 'FAIL: 60% (6 of 10 mutants detected)' > "$t/run/inputs/sensors.md"; review "$none" > "$t/run/inputs/review-step6-claude.md"; review "$none" > "$t/run/inputs/review-step6-codex.md"
-check "a mutation score below the threshold is not eligible" 1 no no 'the mutation threshold on changed classes'
+check "a mutation score below the threshold is not eligible" 1 no no 'the build is red: the mutation score'
 setup; sensors bounded 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"; review "$none" > "$t/run/inputs/review-step6-claude.md"
 check "a missing review is a failed check" 1 no no 'no review from: codex'
 setup; sensors bounded 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"; review "$none" > "$t/run/inputs/review-step6-claude.md"; : > "$t/run/inputs/review-step6-codex.md"
@@ -35,4 +35,19 @@ setup; review "$none" > "$t/run/inputs/review-step6-claude.md"; review "$none" >
 check "no sensor result is a failed check" 1 no no 'the sensors left no result'
 setup; sensors bounded 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"; review '**C1: DISCUSS.** Should the label be translated?' > "$t/run/inputs/review-step6-claude.md"; review "$none" > "$t/run/inputs/review-step6-codex.md"
 check "a question for a person holds the check until it is answered" 1 no no 'yes, once the questions are answered'
+# A red build needs no reviewer: the workflow skips them, and the policy refuses on the sensors alone.
+red() { printf '# Step 5\n\n| Sensor | Result |\n|---|---|\n| Risk floor | **bounded** (see below) |\n| Architecture rule | %s |\n| Build checks (`./mvnw validate`, B1) | %s |\n| Full test suite (17 s) | %s |\n| Mutation score on changed classes (threshold 80%%) | %s |\n\n## Full test suite\n\n' "$1" "$2" "$3" "$4"; }
+setup; red passes pass '140 run, 11 failures, 0 errors, 2 skipped: BUILD FAILED' 'FAIL: no mutation report for the changed classes' > "$t/run/inputs/sensors.md"
+check "a red suite is refused with no review at all" 1 no no 'the build is red: the test suite .140 run, 11 failures'
+if python3 -B "$here/red.py" "$t/run/inputs/sensors.md" > /dev/null; then echo "FAIL red.py exit on a red suite"; fails=$((fails + 1)); else echo "ok   red.py exits 1 on a red build"; fi
+setup; red passes pass '140 run, 0 failures, 0 errors, 2 skipped' 'FAIL: 60% (6 of 10 mutants detected)' > "$t/run/inputs/sensors.md"
+check "a mutation score below the threshold is red" 1 no no 'the build is red: the mutation score'
+setup; red 'FAILS (1 new violation)' pass '140 run, 0 failures, 0 errors, 2 skipped' 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"
+check "a broken architecture rule is red" 1 no no 'the build is red: the architecture rule'
+setup; red passes 'formatting FAILS (1 file)' '140 run, 0 failures, 0 errors, 2 skipped' 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"
+check "a failed build check is red" 1 no no 'the build is red: the build checks'
+setup; red passes pass 'no summary found (exit 1)' 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"
+check "a suite with no result is red" 1 no no 'the build is red: the test suite'
+setup; red passes pass '140 run, 0 failures, 0 errors, 2 skipped' 'pass: 90% (9 of 10 mutants detected)' > "$t/run/inputs/sensors.md"
+if python3 -B "$here/red.py" "$t/run/inputs/sensors.md" > /dev/null; then echo "ok   red.py exits 0 on a green build"; else echo "FAIL red.py on a green build"; fails=$((fails + 1)); fi
 if [ "$fails" = 0 ]; then echo "all passed"; else echo "$fails failed"; exit 1; fi

@@ -4,7 +4,8 @@
 #   ci/gate.sh <inputs dir>
 #
 # <inputs dir> holds sensors.md, change.txt and one review-step6-<reviewer>.md for each
-# reviewer in REVIEWERS (default "claude codex"). A reviewer with no review is a failed
+# reviewer in REVIEWERS (default "claude codex"). A red build (ci/red.py) is refused on
+# the sensors alone, with or without reviews. A reviewer with no review is a failed
 # check: the change is then not eligible, whatever the other review says. The policy
 # (sensors/triage.py auto) writes packet.md beside the inputs folder.
 # Prints eligible=yes|no and rung=yes|no, also to $GITHUB_OUTPUT, and the packet to
@@ -27,8 +28,12 @@ missing=""
 for r in ${REVIEWERS:-claude codex}; do
   [ -s "$inputs/review-step6-$r.md" ] || missing="${missing:+$missing, }$r"
 done
+red=""
+[ -s "$inputs/sensors.md" ] && red="$(python3 -B "$here/red.py" "$inputs/sensors.md" | paste -sd';' - | sed 's/;/; /g')"
 if [ ! -s "$inputs/sensors.md" ] || [ ! -s "$inputs/change.txt" ]; then
   refuse "the sensors left no result"
+elif [ -n "$red" ]; then
+  refuse "the build is red: $red. No reviewer runs on a red build"
 elif [ -n "$missing" ]; then
   refuse "no review from: $missing (a missing or malformed review is a failed check)"
 else
